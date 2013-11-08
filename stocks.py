@@ -4,7 +4,9 @@ import json
 import sys
 import pprint
 import urllib2
+import os
 
+from time import time, sleep, strftime
 from operator import itemgetter
 
 # Function from http://www.calazan.com/python-function-for-displaying-a-list-of-dictionaries-in-table-format/
@@ -74,15 +76,8 @@ def get_stock_quote(ticker_symbol):
     lines = urllib2.urlopen(url).read().splitlines()
     return json.loads(''.join([x for x in lines if x not in ('// [', ']')]))
 
-if __name__ == '__main__':
-    # Fetch tickers from relative 'stocks' file
+def update(lines):
     data = []
-    if len(sys.argv) > 1:
-        f = open(sys.argv[1])
-    else:
-        f = open('stocks')
-    lines = [line.strip() for line in f]
-    f.close()
 
     for ticker in lines:
         data.append( get_stock_quote(ticker) )
@@ -92,4 +87,38 @@ if __name__ == '__main__':
     sort_by_key = 't'
     sort_order_reverse = True
 
-    print format_as_table(data, keys, header, sort_by_key, sort_order_reverse)
+    return '\033[1;31mUpdated at: %s\033[0m\n%s' % (strftime("%H:%M:%S"), format_as_table(data, keys, header, sort_by_key, sort_order_reverse))
+
+if __name__ == '__main__':
+    # Fetch tickers from relative 'stocks' file
+    watch = 0.0
+    if len(sys.argv) > 1:
+        f = open(sys.argv[1])
+        if len(sys.argv) > 2:
+            watch = int(sys.argv[2])
+    else:
+        f = open('stocks')
+    lines = [line.strip() for line in f]
+    f.close()
+
+    try:
+        if watch <= 0:
+            print update(lines)
+        else:
+            startTime = time()
+            output = update(lines)
+            os.system('cls' if os.name=='nt' else 'clear')
+            print output
+            endTime = time() - startTime
+            sleep(max(0, watch-endTime))
+
+            while True:
+                startTime = time()
+                output = update(lines)
+                os.system('cls' if os.name=='nt' else 'clear')
+                print output
+                endTime = time() - startTime
+                sleep(max(0, watch-endTime))
+    except KeyboardInterrupt:
+        print '\033[33mGoodbye!\033[0m\n'
+        sys.exit(0)
